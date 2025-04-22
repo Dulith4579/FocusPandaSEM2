@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">FocusPanda</string>
+
+
+    <string name="item_Pomodoro">Pomodoro timer</string>
+    <string name="item_Flashcard">Flash cards</string>
+    <string name="item_Notes">Notes</string>
+
+    <!-- Item Prices -->
+    <string name="Pomo_time">25 Min</string>
+    <string name="Knowledge">test your knowledge </string>
+    <string name="Note">Add Notes</string>
+
+</resources>
