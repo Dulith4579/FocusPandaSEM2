@@ -60,6 +60,10 @@ import android.os.Build
 import android.os.Environment
 import android.widget.Toast
 import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.flow.collectLatest
+
+import java.util.*
+
 
 import java.util.*
 
@@ -70,70 +74,47 @@ fun UserProfileScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
     val localStorage = remember { LocalStorageManager(context) }
 
-    // Use rememberSaveable to maintain state across configuration changes
+    // Image state
     var imageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-
     var showImageSourceDialog by remember { mutableStateOf(false) }
-    var showPermissionRationale by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
-    // Camera permission
-    val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
-
-    // Storage permission (handles different API levels)
-    val storagePermissionState = rememberPermissionState(
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Manifest.permission.READ_MEDIA_IMAGES
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        }
-    )
-
-    // Camera launcher - handles the photo capture result
-    val cameraLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.TakePicture()
-    ) { success ->
-        if (success) {
-            imageUri?.let { uri ->
-                scope.launch {
-                    localStorage.saveImageUri(uri.toString())
-                    // Force refresh the image
-                    imageUri = uri
-                }
-            }
-        }
+    // User data state
+    var (initialUsername, initialEmail, initialPhone) = remember {
+        mutableStateOf(Triple("", "", ""))
+    }.let { state ->
+        Triple(state.value.first, state.value.second, state.value.third)
     }
 
-    // Gallery launcher - handles image selection
-    val galleryLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let {
-            // Create a persistent URI permission
-            context.contentResolver.takePersistableUriPermission(
-                it,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            scope.launch {
-                localStorage.saveImageUri(it.toString())
-                imageUri = it
-            }
-        }
-    }
+    var username by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var phone by rememberSaveable { mutableStateOf("") }
+    var isEditing by rememberSaveable { mutableStateOf(false) }
+    var isEmailValid by rememberSaveable { mutableStateOf(true) }
+    var isPhoneValid by rememberSaveable { mutableStateOf(true) }
 
-    // Load saved image on first composition
+    // Load initial data
     LaunchedEffect(Unit) {
+        localStorage.userDetails.collect { (loadedUsername, loadedEmail, loadedPhone) ->
+            loadedUsername?.let {
+                username = it
+                initialUsername = it
+            }
+            loadedEmail?.let {
+                email = it
+                initialEmail = it
+            }
+            loadedPhone?.let {
+                phone = it
+                initialPhone = it
+            }
+        }
+
         localStorage.imageUri.collect { uriString ->
-            uriString?.takeIf { it.isNotEmpty() }?.let { uri ->
+            uriString?.let { uri ->
                 try {
                     val parsedUri = Uri.parse(uri)
-                    // Check if URI is still accessible
-                    val exists = try {
-                        context.contentResolver.openInputStream(parsedUri) != null
-                    } catch (e: Exception) {
-                        false
-                    }
-                    if (exists) {
+                    if (context.contentResolver.openInputStream(parsedUri) != null) {
                         imageUri = parsedUri
                     } else {
                         scope.launch { localStorage.saveImageUri("") }
@@ -145,27 +126,103 @@ fun UserProfileScreen(navController: NavController) {
         }
     }
 
-    // Create temp file for camera capture
+    // Validation functions
+    fun validateEmail(email: String): Boolean {
+        return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    }
+
+    fun validatePhone(phone: String): Boolean {
+        return phone.length == 10 && phone.all { it.isDigit() }
+    }
+
+    // Save handler
+    val onSave = {
+        isEmailValid = validateEmail(email)
+        isPhoneValid = validatePhone(phone)
+
+        if (isEmailValid && isPhoneValid) {
+            scope.launch {
+                localStorage.saveUserDetails(username, email, phone)
+                isEditing = false
+                Toast.makeText(context, "Changes saved", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Please fix validation errors", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Delete handler
+    val onDeleteConfirmed = {
+        scope.launch {
+            localStorage.deleteProfileImage()
+            imageUri = null
+            Toast.makeText(context, "Profile image deleted", Toast.LENGTH_SHORT).show()
+        }
+        showDeleteConfirmDialog = false
+    }
+
+    // Camera permission
+    val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
+
+    // Storage permission
+    val storagePermissionState = rememberPermissionState(
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+    )
+
+    // Gallery launcher
+    val galleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(
+                it, Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            scope.launch {
+                localStorage.saveImageUri(it.toString())
+                imageUri = it
+            }
+        }
+    }
+
+    // Camera functions
     fun createTempImageFile(): File {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val storageDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
         return File.createTempFile(
-            "JPEG_${timeStamp}_",
-            ".jpg",
-            storageDir
-        ).apply {
-            createNewFile()
+            "JPEG_${timeStamp}_", ".jpg", storageDir
+        ).apply { createNewFile() }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            imageUri?.let { uri ->
+                scope.launch {
+                    try {
+                        context.contentResolver.openInputStream(uri)?.use {
+                            localStorage.saveProfileImage(uri)
+                        }
+                        localStorage.imageUri.collectLatest { uriString ->
+                            imageUri = uriString?.let { Uri.parse(it) }
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Failed to save image", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         }
     }
 
-    // Take photo function
     fun takePhoto() {
         try {
             val photoFile = createTempImageFile()
             val photoUri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                photoFile
+                context, "${context.packageName}.fileprovider", photoFile
             )
             imageUri = photoUri
 
@@ -179,7 +236,6 @@ fun UserProfileScreen(navController: NavController) {
         }
     }
 
-    // Select from gallery function
     fun selectFromGallery() {
         if (storagePermissionState.status.isGranted) {
             galleryLauncher.launch("image/*")
@@ -188,7 +244,6 @@ fun UserProfileScreen(navController: NavController) {
         }
     }
 
-    // Handle image source selection
     val onImageSourceSelected: (ImageSource) -> Unit = { source ->
         when (source) {
             ImageSource.CAMERA -> takePhoto()
@@ -197,22 +252,11 @@ fun UserProfileScreen(navController: NavController) {
         showImageSourceDialog = false
     }
 
-    // Handle delete confirmation
-    val onDeleteConfirmed = {
-        scope.launch {
-            localStorage.saveImageUri("")
-            imageUri = null
-        }
-        showDeleteConfirmDialog = false
-    }
-
-    // Rest of your UI code remains the same...
+    // UI
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = {
-                    Text("User Profile", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-                },
+                title = { Text("User Profile") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -221,8 +265,6 @@ fun UserProfileScreen(navController: NavController) {
             )
         }
     ) { paddingValues ->
-        // ... your existing UI code ...
-
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
@@ -239,9 +281,28 @@ fun UserProfileScreen(navController: NavController) {
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ProfileImageSection(imageUri = imageUri, onImageClick = { showImageSourceDialog = true })
+                    ProfileImageSection(
+                        imageUri = imageUri,
+                        onImageClick = { showImageSourceDialog = true }
+                    )
                     ProfileDetailsSection(
-                        onEditClick = { /* Edit logic */ },
+                        username = username,
+                        onUsernameChange = { username = it },
+                        email = email,
+                        onEmailChange = { email = it },
+                        phone = phone,
+                        onPhoneChange = { phone = it },
+                        isEditing = isEditing,
+                        isEmailValid = isEmailValid,
+                        isPhoneValid = isPhoneValid,
+                        onEditClick = { isEditing = true },
+                        onSaveClick = {onSave()},
+                        onCancelClick = {
+                            username = initialUsername
+                            email = initialEmail
+                            phone = initialPhone
+                            isEditing = false
+                        },
                         onDeleteClick = { showDeleteConfirmDialog = true }
                     )
                 }
@@ -253,10 +314,29 @@ fun UserProfileScreen(navController: NavController) {
                         .padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    ProfileImageSection(imageUri = imageUri, onImageClick = { showImageSourceDialog = true })
+                    ProfileImageSection(
+                        imageUri = imageUri,
+                        onImageClick = { showImageSourceDialog = true }
+                    )
                     Spacer(modifier = Modifier.height(32.dp))
                     ProfileDetailsSection(
-                        onEditClick = { /* Edit logic */ },
+                        username = username,
+                        onUsernameChange = { username = it },
+                        email = email,
+                        onEmailChange = { email = it },
+                        phone = phone,
+                        onPhoneChange = { phone = it },
+                        isEditing = isEditing,
+                        isEmailValid = isEmailValid,
+                        isPhoneValid = isPhoneValid,
+                        onEditClick = { isEditing = true },
+                        onSaveClick = {onSave()},
+                        onCancelClick = {
+                            username = initialUsername
+                            email = initialEmail
+                            phone = initialPhone
+                            isEditing = false
+                        },
                         onDeleteClick = { showDeleteConfirmDialog = true }
                     )
                 }
@@ -264,24 +344,11 @@ fun UserProfileScreen(navController: NavController) {
         }
     }
 
+    // Dialogs
     if (showImageSourceDialog) {
         ImageSourceDialog(
             onSourceSelected = onImageSourceSelected,
             onDismiss = { showImageSourceDialog = false }
-        )
-    }
-
-
-    if (showPermissionRationale) {
-        AlertDialog(
-            onDismissRequest = { showPermissionRationale = false },
-            title = { Text("Permission Required") },
-            text = { Text("This permission is needed to select profile pictures.") },
-            confirmButton = {
-                TextButton(onClick = { showPermissionRationale = false }) {
-                    Text("OK")
-                }
-            }
         )
     }
 
@@ -293,14 +360,13 @@ fun UserProfileScreen(navController: NavController) {
     }
 }
 
-
 @Composable
 private fun ProfileImageSection(imageUri: Uri?, onImageClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(150.dp)
             .clip(CircleShape)
-            .clickable { onImageClick() }
+            .clickable(onClick = onImageClick)
             .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
     ) {
         val painter = if (imageUri != null) {
@@ -322,43 +388,23 @@ private fun ProfileImageSection(imageUri: Uri?, onImageClick: () -> Unit) {
         )
     }
 }
-@Composable
-fun ProfileScreen() {
-    val context = LocalContext.current
-    var imageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success) {
-            // Image captured successfully
-            // Do something with imageUri
-        }
-    }
-
-    Button(onClick = {
-        val photoFile = createImageFile(context)
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            photoFile
-        )
-        imageUri = uri
-        cameraLauncher.launch(uri)
-    }) {
-        Text("Take Photo")
-    }
-
-    imageUri?.let {
-        Image(
-            painter = rememberAsyncImagePainter(it),
-            contentDescription = "Profile Image",
-            modifier = Modifier.size(120.dp).clip(CircleShape)
-        )
-    }
-}
-
 
 @Composable
-private fun ProfileDetailsSection(onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
+private fun ProfileDetailsSection(
+    username: String,
+    onUsernameChange: (String) -> Unit,
+    email: String,
+    onEmailChange: (String) -> Unit,
+    phone: String,
+    onPhoneChange: (String) -> Unit,
+    isEditing: Boolean,
+    isEmailValid: Boolean,
+    isPhoneValid: Boolean,
+    onEditClick: () -> Unit,
+    onSaveClick: () -> Unit,
+    onCancelClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth(0.9f)
@@ -366,20 +412,79 @@ private fun ProfileDetailsSection(onEditClick: () -> Unit, onDeleteClick: () -> 
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            ProfileDetailRow("Username", "Dilshan")
-            ProfileDetailRow("Email", "jjk@gmail.com")
-            ProfileDetailRow("Phone", "0712345676")
-            ProfileDetailRow("Password", "••••••••")
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (isEditing) {
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = onUsernameChange,
+                    label = { Text("Username") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = onEmailChange,
+                    label = { Text("Email") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = !isEmailValid,
+                    supportingText = {
+                        if (!isEmailValid) {
+                            Text("Please enter a valid email")
+                        }
+                    }
+                )
+
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = onPhoneChange,
+                    label = { Text("Phone") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = !isPhoneValid,
+                    supportingText = {
+                        if (!isPhoneValid) {
+                            Text("Phone must be 10 digits")
+                        }
+                    }
+                )
+            } else {
+                ProfileDetailRow("Username", username)
+                ProfileDetailRow("Email", email)
+                ProfileDetailRow("Phone", phone)
+                ProfileDetailRow("Password", "••••••••")
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Button(onClick = onEditClick) { Text("Edit") }
-                Button(onClick = onDeleteClick, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
-                    Text("Delete")
+                if (isEditing) {
+                    Button(onClick = onSaveClick) {
+                        Text("Save")
+                    }
+                    Button(
+                        onClick = onCancelClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text("Cancel")
+                    }
+                } else {
+                    Button(onClick = onEditClick) {
+                        Text("Edit")
+                    }
+                    Button(
+                        onClick = onDeleteClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Delete Image")
+                    }
                 }
             }
         }
@@ -392,13 +497,25 @@ private fun ProfileDetailRow(label: String, value: String) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            text = label,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
 @Composable
-private fun ImageSourceDialog(onSourceSelected: (ImageSource) -> Unit, onDismiss: () -> Unit) {
+private fun ImageSourceDialog(
+    onSourceSelected: (ImageSource) -> Unit,
+    onDismiss: () -> Unit
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Select Image Source") },
@@ -417,13 +534,21 @@ private fun ImageSourceDialog(onSourceSelected: (ImageSource) -> Unit, onDismiss
 }
 
 @Composable
-private fun DeleteConfirmationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+private fun DeleteConfirmationDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Confirm Delete") },
         text = { Text("Are you sure you want to delete your profile image?") },
         confirmButton = {
-            TextButton(onClick = onConfirm, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+            TextButton(
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
                 Text("Delete")
             }
         },
@@ -438,10 +563,11 @@ private fun DeleteConfirmationDialog(onConfirm: () -> Unit, onDismiss: () -> Uni
 private enum class ImageSource {
     CAMERA, GALLERY
 }
+
 private fun createImageFile(context: Context): File {
     val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
     val storageDir = File(context.getExternalFilesDir(null), "images").apply {
-        if (!exists()) mkdirs() // create directory if not exists
+        if (!exists()) mkdirs()
     }
     return File(storageDir, "JPEG_${timeStamp}.jpg")
 }
