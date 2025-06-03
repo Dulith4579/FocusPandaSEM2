@@ -10,7 +10,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -20,27 +19,35 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.focuspanda.viewmodels.ToDoViewModel
 import com.example.focuspanda.Model.Task
-import com.example.focuspanda.R
+
 
 
 @Composable
 fun ToDoListScreen(navController: NavController) {
+    val viewModel: ToDoViewModel = viewModel()
+    val tasks by viewModel.tasks.collectAsState()
     var isFabVisible by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var newTaskTitle by remember { mutableStateOf("") }
+
 
     LaunchedEffect(Unit) { isFabVisible = true } // Ensures FAB animates when screen appears
 
     Scaffold(
         floatingActionButton = {
-            AnimatedFAB(isFabVisible = isFabVisible) {
+            AnimatedFAB(isFabVisible = isFabVisible){
+               showAddDialog = true
                 // TODO: Implement add task functionality
             }
         }
@@ -51,6 +58,8 @@ fun ToDoListScreen(navController: NavController) {
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
         ) {
+
+
             val isLandscape = maxWidth > maxHeight
             val scrollState = rememberScrollState()
 
@@ -61,15 +70,46 @@ fun ToDoListScreen(navController: NavController) {
                     .verticalScroll(scrollState), //
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                ToDoListContent()
-                BackButton(navController = navController, modifier = Modifier.align(Alignment.CenterHorizontally))
+                ToDoListContent(
+                    tasks = tasks,
+                    onTaskChecked = { task, isChecked ->
+                        viewModel.updateTask(task.copy(isCompleted = isChecked))
+                    },
+                    onDeleteTask = { task ->
+                        viewModel.deleteTask(task)
+                    }
+                )
+                BackButton(
+                    navController = navController,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
             }
         }
+
+        if (showAddDialog) {
+            AddTaskDialog(
+                title = newTaskTitle,
+                onTitleChange = { newTaskTitle = it },
+                onDismiss = { showAddDialog = false },
+                onConfirm = {
+                    if (newTaskTitle.isNotBlank()) {
+                        viewModel.addTask(newTaskTitle)
+                        newTaskTitle = ""
+                        showAddDialog = false
+                    }
+                })
+        }
+
+
     }
 }
 
 @Composable
-fun ToDoListContent() {
+fun ToDoListContent(
+    tasks: List<Task>,
+    onTaskChecked: (Task, Boolean) -> Unit,
+    onDeleteTask: (Task) -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -85,31 +125,36 @@ fun ToDoListContent() {
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        //  To-Do Items
-        val exampleTasks = listOf(
-            "Chemistry 3hr study",
-            "Chemistry Tute Work",
-            "Chemistry Homework",
-            "Biology Paper",
-            "Physics Past Questions",
-            "Math Assignment",
-            "History Essay",
-            "Computer Science Project"
-        )
-
+        // Task List
         Column(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.padding(horizontal = 8.dp)
         ) {
-            exampleTasks.forEach { task ->
-                TaskRowUIOnly(task)
+            if (tasks.isEmpty()) {
+                Text(
+                    text = "No tasks yet. Add one!",
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(16.dp)
+                )
+            } else {
+                tasks.forEach { task ->
+                    TaskRow(
+                        task = task,
+                        onCheckedChange = { isChecked -> onTaskChecked(task, isChecked) },
+                        onDelete = { onDeleteTask(task) }
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun TaskRowUIOnly(task: String) {
+fun TaskRow(
+    task: Task,
+    onCheckedChange: (Boolean) -> Unit,
+    onDelete: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -119,31 +164,90 @@ fun TaskRowUIOnly(task: String) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
-            text = task,
+            text = task.title,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
-            color = Color.Black
+            color = if (task.isCompleted) Color.Gray else Color.Black,
+            modifier = Modifier.weight(1f)
         )
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(
-                checked = false,
-                onCheckedChange = null, // Placeholder for non functionality
+                checked = task.isCompleted,
+                onCheckedChange = onCheckedChange,
                 colors = CheckboxDefaults.colors(
                     uncheckedColor = Color.Black,
                     checkedColor = Color(0xFF4CAF50)
                 )
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Delete Task",
-                tint = Color.Red,
-                modifier = Modifier.size(24.dp)
-            )
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete Task",
+                    tint = Color.Red,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+    }
+}
+@Composable
+fun AddTaskDialog(
+    title: String,
+    onTitleChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Add New Task",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = onTitleChange,
+                    label = { Text("Task description") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(
+                        onClick = onConfirm,
+                        enabled = title.isNotBlank()
+                    ) {
+                        Text("Add")
+                    }
+                }
+            }
         }
     }
 }
+
 
 @Composable
 fun BackButton(navController: NavController, modifier: Modifier = Modifier) {
