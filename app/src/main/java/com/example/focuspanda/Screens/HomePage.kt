@@ -1,6 +1,7 @@
 package com.example.focuspanda.Screens
 
 import android.media.MediaPlayer
+import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import com.example.focuspanda.R
 
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -62,32 +64,37 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.focuspanda.CommenSection.MainsCard
 import com.example.focuspanda.Data.QuickNavigationIterm
 import com.example.focuspanda.Model.QuickNavigate1
+import com.example.focuspanda.ui.theme.FocusPandaTheme
 import com.example.focuspanda.ui.theme.surfaceVariantLight
+import com.google.firebase.auth.FirebaseAuth
 
 
 @Composable
 fun MainScreen(navController: NavController) {
     val scrollState = rememberScrollState()
-//testcode
+    val context = LocalContext.current
+
     Scaffold(
         modifier = Modifier.fillMaxSize()
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background) //
+                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
                 .verticalScroll(scrollState),
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header with Panda logo and Profile Icon
+            // Header with Panda logo, Logout button and Profile Icon
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -102,15 +109,38 @@ fun MainScreen(navController: NavController) {
                     color = MaterialTheme.colorScheme.primary
                 )
 
-                IconButton(
-                    onClick = { navController.navigate("profile") },
-                    modifier = Modifier.size(48.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.dilshan),
-                        contentDescription = "User Profile",
-                        modifier = Modifier.size(60.dp)
-                    )
+                    // Logout Button
+                    IconButton(
+                        onClick = {
+                            FirebaseAuth.getInstance().signOut()
+                            Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
+                            navController.navigate("login") {
+                                popUpTo("home") { inclusive = true }
+                            }
+                        },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = "Logout",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Existing Profile Icon
+                    IconButton(
+                        onClick = { navController.navigate("profile") },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.dilshan),
+                            contentDescription = "User Profile",
+                            modifier = Modifier.size(60.dp)
+                        )
+                    }
                 }
             }
 
@@ -127,7 +157,7 @@ fun MainScreen(navController: NavController) {
             )
 
             Spacer(modifier = Modifier.height(10.dp))
-             //first commit
+
             // Quick Navigation
             Text(
                 text = "Productive study tips",
@@ -138,7 +168,7 @@ fun MainScreen(navController: NavController) {
                     .align(Alignment.Start)
             )
 
-            //  LazyRow
+            // LazyRow
             ItemList(
                 featureList = QuickNavigationIterm().loadQuickNavigationIterm(),
                 navController = navController
@@ -182,6 +212,13 @@ fun MainScreen(navController: NavController) {
                 description = "Use focused time blocks for productivity.",
                 onClick = { navController.navigate("pomodoro") }
             )
+            FeatureCard(
+                imageRes = R.drawable.flashcards,
+                title = "Flash Cards",
+                description = "Use active learning method to revise what you have learned .",
+                onClick = { navController.navigate("flashCards") }
+            )
+
 
             // Flashcards Card
             FeatureCard(
@@ -190,10 +227,27 @@ fun MainScreen(navController: NavController) {
                 description = "stay Organized and get more work done.",
                 onClick = { navController.navigate("todo") }
             )
+            FeatureCard(
+                imageRes = R.drawable.motivation, // Make sure to add a weather icon to your drawables
+                title = " Daily Motivation",
+                description = "Get inspired with motivational quotes to boost your productivity",
+                onClick = { navController.navigate("quotes") }
+            )
+            Text(
+                text = "Device Settings",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .padding(8.dp)
+                    .align(Alignment.Start)
+            )
+
+            SettingsCard(navController = navController)
         }
     }
 }
 
+// Rest of your existing composable functions remain exactly the same:
 @Composable
 fun FeatureCard(imageRes: Int, title: String, description: String, onClick: () -> Unit) {
     Card(
@@ -202,7 +256,7 @@ fun FeatureCard(imageRes: Int, title: String, description: String, onClick: () -
             .padding(8.dp)
             .height(150.dp)
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor =  MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         elevation = CardDefaults.cardElevation(8.dp)
     ) {
         Row(
@@ -210,7 +264,6 @@ fun FeatureCard(imageRes: Int, title: String, description: String, onClick: () -
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Image
             Image(
                 painter = painterResource(imageRes),
                 contentDescription = title,
@@ -219,7 +272,6 @@ fun FeatureCard(imageRes: Int, title: String, description: String, onClick: () -
                     .padding(start = 16.dp)
             )
 
-            // Text Column
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -235,14 +287,57 @@ fun FeatureCard(imageRes: Int, title: String, description: String, onClick: () -
                 Text(
                     text = description,
                     fontSize = 14.sp,
-                    color =  MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
     }
 }
+@Composable
+fun SettingsCard(navController: NavController) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+            .height(150.dp)
+            .clickable { navController.navigate("settings") },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Image(
+                painter = painterResource(R.drawable.settings_icon), // Add a settings icon to your drawables
+                contentDescription = "Settings",
+                modifier = Modifier
+                    .size(100.dp)
+                    .padding(start = 16.dp)
+            )
 
-
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 16.dp, end = 16.dp)
+            ) {
+                Text(
+                    text = "Device Settings",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Configure device sensors and connectivity",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun ClickableImage(imageRes: Int, description: String, onClick: () -> Unit) {
@@ -272,7 +367,6 @@ fun ItemList(featureList: List<QuickNavigate1>, navController: NavController) {
     }
 }
 
-//  ItemCard with Animation &  Navigation
 @Composable
 fun ItemCard(item: QuickNavigate1, navController: NavController) {
     var isPressed by remember { mutableStateOf(false) }
@@ -282,7 +376,7 @@ fun ItemCard(item: QuickNavigate1, navController: NavController) {
         modifier = Modifier
             .clickable {
                 isPressed = true
-                val encodedFeature = item.feature.replace(" ", "_") // to take in empty spaces
+                val encodedFeature = item.feature.replace(" ", "_")
                 navController.navigate("details/$encodedFeature")
             }
             .graphicsLayer(scaleX = scale, scaleY = scale)
@@ -305,10 +399,10 @@ fun ItemCard(item: QuickNavigate1, navController: NavController) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailScreen(navController: NavController, feature: String?) {
-    val decodedFeature = feature?.replace("_", " ") // Decode feature
+    val decodedFeature = feature?.replace("_", " ")
 
     val featureDetails = mapOf(
-        "PomodoroTimer" to "A Pomodoro Timer uses 25-minute work sessions with 5-minute breaks to enhance focus and productivity. After four sessions, take a 15–30 minute break to prevent burnout.",
+        "PomodoroTimer" to "A Pomodoro Timer uses 25-minute work sessions with 5-minute breaks to enhance focus and productivity. After four sessions, take a 15-30 minute break to prevent burnout.",
         "Flashcards" to "study aids with questions or terms on one side and answers on the other. They enhance memory, aid active recall, and improve learning efficiency.Revise key concepts quickly.",
         "MindMaps" to " visually organize ideas using a central concept with branching nodes. They enhance creativity, memory, and understanding by structuring information in a clear, interconnected way.Retrace your studies effectively.",
         "FocusMode" to "minimizes distractions by blocking notifications and apps, helping users concentrate on tasks. It enhances productivity, reduces interruptions, and promotes deep work.Minimize distractions for deep work."
@@ -320,14 +414,14 @@ fun DetailScreen(navController: NavController, feature: String?) {
         modifier = Modifier.fillMaxSize(),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(text = decodedFeature ?: "Feature Detail",
-                color = MaterialTheme.colorScheme.onBackground )
-                        },
+                title = {
+                    Text(text = decodedFeature ?: "Feature Detail",
+                        color = MaterialTheme.colorScheme.onBackground)
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer)
-
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
             )
@@ -363,13 +457,13 @@ fun DetailScreen(navController: NavController, feature: String?) {
         }
     }
 }
+
 @Composable
 fun MusicCard(title: String, description: String, audioResId: Int) {
-    val context = LocalContext.current // ✅ Get LocalContext here
+    val context = LocalContext.current
     var isPlaying by remember { mutableStateOf(false) }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
-    //  for Clean up MediaPlayer when the composable is removed
     DisposableEffect(Unit) {
         onDispose {
             mediaPlayer?.release()
@@ -418,12 +512,20 @@ fun MusicCard(title: String, description: String, audioResId: Int) {
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isPlaying) Color.Red else Color(0xFF4CAF50),
-                    contentColor =  (MaterialTheme.colorScheme.onSecondaryContainer)
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 ),
                 modifier = Modifier.padding(end = 16.dp)
             ) {
                 Text(if (isPlaying) "Pause" else "Play")
             }
         }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun MainScreenPreview() {
+    FocusPandaTheme {  // Or MaterialTheme if you're using that
+        MainScreen(navController = rememberNavController())
     }
 }
