@@ -30,10 +30,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 
 import com.example.focuspanda.R
+import com.example.focuspanda.helper.FirebaseAuthHelper
 
 @Composable
 fun LoginScreen(navController: NavController) {
-    val username = remember { mutableStateOf("") }
+    val email = remember { mutableStateOf("") }
     val password = remember { mutableStateOf("") }
     val passwordVisible = remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -88,8 +89,8 @@ fun LoginScreen(navController: NavController) {
 
                     // **Username Field**
                     OutlinedTextField(
-                        value = username.value,
-                        onValueChange = { username.value = it },
+                        value = email.value,
+                        onValueChange = { email.value = it },
                         label = { Text("User name",color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -128,18 +129,29 @@ fun LoginScreen(navController: NavController) {
                     ) {
                         Button(
                             onClick = {
-                                if (username.value.isNotEmpty() && password.value.isNotEmpty()) {
-                                    navController.navigate("home") {
-                                        popUpTo("login") { inclusive = true }
-                                    }
+                                if (email.value.isNotEmpty() && password.value.isNotEmpty()) {
+                                    FirebaseAuthHelper.signInWithEmail(
+                                        email = email.value,
+                                        password = password.value,
+                                        onSuccess = {
+                                            Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
+                                            navController.navigate("home") {
+                                                popUpTo("login") { inclusive = true }
+                                            }
+                                        },
+                                        onFailure = { errorMessage ->
+                                            Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
                                 } else {
                                     Toast.makeText(
                                         context,
-                                        "Please enter both username and password",
+                                        "Please enter both email and password",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
                             },
+
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF1B5E20),
                                 contentColor =  (MaterialTheme.colorScheme.onSecondaryContainer)

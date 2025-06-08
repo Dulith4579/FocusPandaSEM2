@@ -11,4 +11,19 @@
     <string name="Knowledge">test your knowledge </string>
     <string name="Note">Add Notes</string>
 
+
+    <string name="flashcards_title">Flash Cards</string>
+    <string name="back_button">Back</string>
+    <string name="add_flashcard">Add Flashcard</string>
+    <string name="no_flashcards">No flashcards yet</string>
+    <string name="add_first_flashcard">Add Your First Flashcard</string>
+    <string name="previous">Previous</string>
+    <string name="next">Next</string>
+    <string name="show_question">Show Question</string>
+    <string name="show_answer">Show Answer</string>
+    <string name="add_new_flashcard">Add New Flashcard</string>
+    <string name="question">Question</string>
+    <string name="answer">Answer</string>
+    <string name="add">Add</string>
+    <string name="cancel">Cancel</string>
 </resources>

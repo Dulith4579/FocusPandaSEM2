@@ -1,0 +1,48 @@
+{
+  "features": [
+    {
+      "name": "PomodoroTimer",
+      "title": "Pomodoro Timer",
+      "description": "A Pomodoro Timer uses 25-minute work sessions with 5-minute breaks to enhance focus and productivity. After four sessions, take a 15-30 minute break to prevent burnout.",
+      "benefits": [
+        "Improves focus and concentration",
+        "Prevents burnout with regular breaks",
+        "Enhances time management skills"
+      ],
+      "imageRes": "pomodoro"
+    },
+    {
+      "name": "Flashcards",
+      "title": "Flash Cards",
+      "description": "Study aids with questions or terms on one side and answers on the other. They enhance memory, aid active recall, and improve learning efficiency.",
+      "benefits": [
+        "Enhances memory retention",
+        "Promotes active recall",
+        "Quick revision of key concepts"
+      ],
+      "imageRes": "flashcards"
+    },
+    {
+      "name": "MindMaps",
+      "title": "MindMaps",
+      "description": "Visually organize ideas using a central concept with branching nodes. They enhance creativity, memory, and understanding by structuring information in a clear, interconnected way.",
+      "benefits": [
+        "Improves information organization",
+        "Enhances creative thinking",
+        "Helps visualize complex concepts"
+      ],
+      "imageRes": "mind"
+    },
+    {
+      "name": "FocusMode",
+      "title": "FocusMode",
+      "description": "Minimizes distractions by blocking notifications and apps, helping users concentrate on tasks. It enhances productivity, reduces interruptions, and promotes deep work.",
+      "benefits": [
+        "Reduces digital distractions",
+        "Promotes deep work sessions",
+        "Improves overall productivity"
+      ],
+      "imageRes": "focus"
+    }
+  ]
+}

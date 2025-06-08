@@ -10,15 +10,7 @@ data class NavIterm(
 
 
 
-data class Task(
-    val id: Int,
-    val title: String,
-    val isCompleted: Boolean = false
-)
-data class Flashcard(
-    var front: String,
-    var back: String
-)
+
 
 
 

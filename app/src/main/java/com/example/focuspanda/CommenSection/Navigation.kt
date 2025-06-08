@@ -13,13 +13,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.navigation.compose.*
+import com.example.app.settings.SettingsScreen
 import com.example.focuspanda.Model.NavIterm
 import com.example.focuspanda.Screens.DetailScreen
+import com.example.focuspanda.Screens.FeaturedDrinksPage
+import com.example.focuspanda.Screens.FlashcardScreen
 import com.example.focuspanda.Screens.LoginScreen
 import com.example.focuspanda.Screens.MainScreen
 import com.example.focuspanda.Screens.PomodoroTimerScreen
+import com.example.focuspanda.Screens.QuotesScreen
 import com.example.focuspanda.Screens.ToDoListScreen
 import com.example.focuspanda.Screens.UserProfileScreen
+import com.example.focuspanda.Screens.QuotesScreen
+
 import com.example.focuspanda.SplashScreen
 
 
@@ -40,6 +46,12 @@ fun BottomNavigationScreen(navController: NavController) {
             composable("todo") { ToDoListScreen(bottomNavController) }
             composable("dashboard") { MainScreen(bottomNavController) }
             composable("profile") { UserProfileScreen(bottomNavController) }
+            composable("flashCards") { FlashcardScreen(bottomNavController) }
+            composable("quotes") { QuotesScreen(bottomNavController) }
+
+            composable("settings") { SettingsScreen(bottomNavController) }
+
+            composable("FeaturedDrinksPage") { FeaturedDrinksPage(bottomNavController) }
 
             // ✅ Corrected indentation of DetailScreen
             composable("details/{feature}") { backStackEntry ->

@@ -28,9 +28,11 @@ import androidx.compose.ui.unit.sp
 import com.example.focuspanda.R
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.focuspanda.helper.FirebaseAuthHelper
 
 
 @Composable
@@ -40,6 +42,7 @@ fun SignUpScreen(navController: NavController) {
     val phoneNumber = remember { mutableStateOf("") } // Phone number field
     val password = remember { mutableStateOf("") }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Box(
         modifier = Modifier
@@ -135,13 +138,22 @@ fun SignUpScreen(navController: NavController) {
                         onClick = {
                             if (username.value.isNotEmpty() &&
                                 email.value.isNotEmpty() &&
-                                phoneNumber.value.isNotEmpty() &&
                                 password.value.isNotEmpty()
                             ) {
-                                Toast.makeText(context, "Account Created!", Toast.LENGTH_SHORT).show()
-                                navController.navigate("login") {
-                                    popUpTo("signup") { inclusive = true }
-                                }
+                                FirebaseAuthHelper.signUpWithEmail(
+                                    email = email.value,
+                                    password = password.value,
+                                    username = username.value,
+                                    onSuccess = {
+                                        Toast.makeText(context, "Account Created!", Toast.LENGTH_SHORT).show()
+                                        navController.navigate("home") {
+                                            popUpTo("signup") { inclusive = true }
+                                        }
+                                    },
+                                    onFailure = { errorMessage ->
+                                        Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                                    }
+                                )
                             } else {
                                 Toast.makeText(
                                     context,

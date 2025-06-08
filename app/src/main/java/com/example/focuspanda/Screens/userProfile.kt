@@ -59,6 +59,7 @@ import kotlinx.coroutines.launch
 import android.os.Build
 import android.os.Environment
 import android.widget.Toast
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.flow.collectLatest
 
@@ -277,34 +278,52 @@ fun UserProfileScreen(navController: NavController) {
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
+                        .horizontalScroll(rememberScrollState())  // Add horizontal scroll
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ProfileImageSection(
-                        imageUri = imageUri,
-                        onImageClick = { showImageSourceDialog = true }
-                    )
-                    ProfileDetailsSection(
-                        username = username,
-                        onUsernameChange = { username = it },
-                        email = email,
-                        onEmailChange = { email = it },
-                        phone = phone,
-                        onPhoneChange = { phone = it },
-                        isEditing = isEditing,
-                        isEmailValid = isEmailValid,
-                        isPhoneValid = isPhoneValid,
-                        onEditClick = { isEditing = true },
-                        onSaveClick = {onSave()},
-                        onCancelClick = {
-                            username = initialUsername
-                            email = initialEmail
-                            phone = initialPhone
-                            isEditing = false
-                        },
-                        onDeleteClick = { showDeleteConfirmDialog = true }
-                    )
+                    // Add vertical scroll for the details section in landscape
+                    Column(
+                        modifier = Modifier
+                            .verticalScroll(rememberScrollState())
+                            .weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        ProfileImageSection(
+                            imageUri = imageUri,
+                            onImageClick = { showImageSourceDialog = true }
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .verticalScroll(rememberScrollState())
+                            .weight(1f)
+                            .padding(horizontal = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        ProfileDetailsSection(
+                            username = username,
+                            onUsernameChange = { username = it },
+                            email = email,
+                            onEmailChange = { email = it },
+                            phone = phone,
+                            onPhoneChange = { phone = it },
+                            isEditing = isEditing,
+                            isEmailValid = isEmailValid,
+                            isPhoneValid = isPhoneValid,
+                            onEditClick = { isEditing = true },
+                            onSaveClick = {onSave()},
+                            onCancelClick = {
+                                username = initialUsername
+                                email = initialEmail
+                                phone = initialPhone
+                                isEditing = false
+                            },
+                            onDeleteClick = { showDeleteConfirmDialog = true }
+                        )
+                    }
                 }
             } else {
                 Column(
@@ -343,6 +362,7 @@ fun UserProfileScreen(navController: NavController) {
             }
         }
     }
+
 
     // Dialogs
     if (showImageSourceDialog) {

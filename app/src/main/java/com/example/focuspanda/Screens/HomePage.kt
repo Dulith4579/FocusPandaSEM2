@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -34,6 +35,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +45,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -70,6 +73,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.focuspanda.CommenSection.MainsCard
+import com.example.focuspanda.Data.JsonLoader
 import com.example.focuspanda.Data.QuickNavigationIterm
 import com.example.focuspanda.Model.QuickNavigate1
 import com.example.focuspanda.ui.theme.FocusPandaTheme
@@ -157,6 +161,48 @@ fun MainScreen(navController: NavController) {
             )
 
             Spacer(modifier = Modifier.height(10.dp))
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                elevation = CardDefaults.cardElevation(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "How Focus Panda Works",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Focus Panda helps you stay productive with study tools, ambient sounds, and productivity techniques. Get started to explore all features.",
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = { navController.navigate("FeaturedDrinksPage") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text("Get Started", fontSize = 18.sp)
+                    }
+                }
+            }
 
             // Quick Navigation
             Text(
@@ -377,7 +423,7 @@ fun ItemCard(item: QuickNavigate1, navController: NavController) {
             .clickable {
                 isPressed = true
                 val encodedFeature = item.feature.replace(" ", "_")
-                navController.navigate("details/$encodedFeature")
+                navController.navigate("details/${item.feature}")
             }
             .graphicsLayer(scaleX = scale, scaleY = scale)
     ) {
@@ -396,67 +442,177 @@ fun ItemCard(item: QuickNavigate1, navController: NavController) {
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailScreen(navController: NavController, feature: String?) {
+    val context = LocalContext.current
     val decodedFeature = feature?.replace("_", " ")
+    val scrollState = rememberScrollState()
 
-    val featureDetails = mapOf(
-        "PomodoroTimer" to "A Pomodoro Timer uses 25-minute work sessions with 5-minute breaks to enhance focus and productivity. After four sessions, take a 15-30 minute break to prevent burnout.",
-        "Flashcards" to "study aids with questions or terms on one side and answers on the other. They enhance memory, aid active recall, and improve learning efficiency.Revise key concepts quickly.",
-        "MindMaps" to " visually organize ideas using a central concept with branching nodes. They enhance creativity, memory, and understanding by structuring information in a clear, interconnected way.Retrace your studies effectively.",
-        "FocusMode" to "minimizes distractions by blocking notifications and apps, helping users concentrate on tasks. It enhances productivity, reduces interruptions, and promotes deep work.Minimize distractions for deep work."
-    )
+    // Load features from JSON
+    val featureDetailsResponse = remember {
+        JsonLoader.loadFeaturesFromJson(context)
+    }
 
-    val detailText = featureDetails[decodedFeature] ?: "No additional details available."
+
+    // Find the matching feature
+    val featureDetail = featureDetailsResponse.features.find {
+        it.name == decodedFeature
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(text = decodedFeature ?: "Feature Detail",
-                        color = MaterialTheme.colorScheme.onBackground)
+                    Text(
+                        text = featureDetail?.title ?: "Feature Detail",
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    titleContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             )
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(paddingValues),
-            contentAlignment = Alignment.Center
+                .padding(paddingValues)
+                .verticalScroll(scrollState),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = decodedFeature ?: "Feature",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+            if (featureDetail != null) {
+                // Feature Image
+                Image(
+                    painter = painterResource(
+                        id = context.resources.getIdentifier(
+                            featureDetail.imageRes,
+                            "drawable",
+                            context.packageName
+                        )
+                    ),
+                    contentDescription = featureDetail.title,
+                    modifier = Modifier
+                        .size(200.dp)
+                        .padding(16.dp),
+                    contentScale = ContentScale.Fit
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(text = detailText, fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer)
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = { navController.popBackStack() },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
+
+                // Feature Description
+                Text(
+                    text = featureDetail.description,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Benefits Section
+                Text(
+                    text = "Key Benefits:",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .align(Alignment.Start)
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
                 ) {
-                    Text("Back")
+                    featureDetail.benefits.forEach { benefit ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = "Benefit",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = benefit,
+                                fontSize = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Divider(
+                            modifier = Modifier.padding(vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Action Buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    OutlinedButton(
+                        onClick = { navController.popBackStack() },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Back")
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Button(
+                        onClick = { /* Handle feature activation */ },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text("Start Using")
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Feature details not found",
+                        fontSize = 18.sp,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
+
     }
 }
+
 
 @Composable
 fun MusicCard(title: String, description: String, audioResId: Int) {
